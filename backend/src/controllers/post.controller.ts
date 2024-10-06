@@ -249,7 +249,8 @@ export const likePost = async (req: Request, res: Response) => {
 		});
 
 		if (!post) {
-			return res.status(404).json({ message: "Post not found" });
+			res.status(404).json({ message: "Post not found" });
+			return;
 		}
 
 		const isLiked = post.likes.some((like) => like.id === userId);

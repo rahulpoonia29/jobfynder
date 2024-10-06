@@ -1,11 +1,36 @@
-import Notification from "../models/notification.model.js";
+import { User } from "@prisma/client";
+import { Request, Response } from "express";
+import prismaClient from "../prisma/prismaClient";
 
-export const getUserNotifications = async (req, res) => {
+export const getUserNotifications = async (req: Request, res: Response) => {
 	try {
-		const notifications = await Notification.find({ recipient: req.user._id })
-			.sort({ createdAt: -1 })
-			.populate("relatedUser", "name username profilePicture")
-			.populate("relatedPost", "content image");
+		const userID = (req.user as User).id;
+
+		const notifications = await prismaClient.prisma.notification.findMany({
+			where: {
+				recipientId: userID,
+			},
+			select: {
+				relatedUser: {
+					select: {
+						name: true,
+						username: true,
+						profilePicture: true,
+					},
+				},
+				relatedPost: {
+					select: {
+						content: true,
+						image: true,
+					},
+				},
+				read: true,
+				type: true,
+			},
+			orderBy: {
+				createdAt: "desc",
+			},
+		});
 
 		res.status(200).json(notifications);
 	} catch (error) {
@@ -14,14 +39,18 @@ export const getUserNotifications = async (req, res) => {
 	}
 };
 
-export const markNotificationAsRead = async (req, res) => {
+export const markNotificationAsRead = async (req: Request, res: Response) => {
 	const notificationId = req.params.id;
 	try {
-		const notification = await Notification.findByIdAndUpdate(
-			{ _id: notificationId, recipient: req.user._id },
-			{ read: true },
-			{ new: true }
-		);
+		const notification = await prismaClient.prisma.notification.update({
+			where: {
+				id: notificationId,
+			},
+			select: { id: true },
+			data: {
+				read: true,
+			},
+		});
 
 		res.json(notification);
 	} catch (error) {
@@ -30,13 +59,14 @@ export const markNotificationAsRead = async (req, res) => {
 	}
 };
 
-export const deleteNotification = async (req, res) => {
+export const deleteNotification = async (req: Request, res: Response) => {
 	const notificationId = req.params.id;
 
 	try {
-		await Notification.findOneAndDelete({
-			_id: notificationId,
-			recipient: req.user._id,
+		await prismaClient.prisma.notification.delete({
+			where: {
+				id: notificationId,
+			},
 		});
 
 		res.json({ message: "Notification deleted successfully" });

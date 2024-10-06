@@ -54,9 +54,15 @@ export const getPublicProfile = async (req: Request, res: Response) => {
 			where: {
 				username: req.params.username,
 			},
-			select: {
-				password: false,
-			},
+
+			// TODO: Define all fields required in the forntend and only send them
+			// select: {
+			// 	id:true,
+			// 	name:true,
+			// 	username:true,
+			// 	email:true,
+			// 	password: false,
+			// },
 		});
 
 		if (!user) {
