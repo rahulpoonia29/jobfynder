@@ -1,0 +1,139 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                         String              @id @default(uuid())
+  name                       String
+  username                   String              @unique
+  email                      String              @unique
+  password                   String
+  profilePicture             String              @default("")
+  bannerImg                  String              @default("")
+  headline                   String              @default("Linkedin User")
+  location                   String              @default("Earth")
+  about                      String              @default("")
+  skills                     String[]
+  experience                 Experience[]
+  education                  Education[]
+  connections                Connection[]        @relation("UserToConnection")
+  connectedUsers             Connection[]        @relation("ConnectionToUser")
+  connectionRequestsSent     ConnectionRequest[] @relation("SentRequests")
+  connectionRequestsReceived ConnectionRequest[] @relation("ReceivedRequests")
+  notifications              Notification[]      @relation("UserNotifications")
+  relatedNotifications       Notification[]      @relation("UserRelatedNotifications")
+  posts                      Post[]              @relation("UserPosts")
+  likedPosts                 Post[]              @relation("LikedPosts")
+  comments                   Comment[]
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+}
+
+model Connection {
+  id              String @id @default(uuid())
+  userId          String
+  connectedUserId String
+  /// User to Connection
+  user            User   @relation("UserToConnection", fields: [userId], references: [id])
+  connectedUser   User   @relation("ConnectionToUser", fields: [connectedUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, connectedUserId]) // Ensure each connection is unique
+}
+
+model ConnectionRequest {
+  id         String        @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     RequestStatus @default(PENDING) // Status of the request
+
+  sender   User @relation("SentRequests", fields: [senderId], references: [id])
+  receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([senderId, receiverId]) // Ensure a request is unique
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Experience {
+  id          String    @id @default(uuid())
+  title       String
+  company     String
+  startDate   DateTime
+  endDate     DateTime?
+  description String
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model Education {
+  id           String @id @default(uuid())
+  school       String
+  fieldOfStudy String
+  startYear    Int
+  endYear      Int
+  userId       String
+  user         User   @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id            String           @id @default(uuid())
+  recipient     User             @relation("UserNotifications", fields: [recipientId], references: [id])
+  recipientId   String
+  type          NotificationType
+  relatedUser   User?            @relation("UserRelatedNotifications", fields: [relatedUserId], references: [id])
+  relatedUserId String?
+  relatedPost   Post?            @relation(fields: [relatedPostId], references: [id])
+  relatedPostId String?
+  read          Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  CONNECTION_ACCEPTED
+}
+
+model Post {
+  id            String         @id @default(uuid())
+  author        User           @relation("UserPosts", fields: [authorId], references: [id])
+  authorId      String
+  content       String?
+  image         String?
+  likes         User[]         @relation("LikedPosts")
+  comments      Comment[]
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String?
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    String
+  createdAt DateTime @default(now())
+}
