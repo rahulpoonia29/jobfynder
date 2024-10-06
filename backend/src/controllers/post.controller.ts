@@ -6,12 +6,24 @@ import { User } from "@prisma/client";
 
 export const getFeedPosts = async (req: Request, res: Response) => {
 	try {
-		const user = req.user as any;
+		const user = req.user as User;
+
+		const updatedUser = await prismaClient.prisma.user.findUniqueOrThrow({
+			where: {
+				id: user.id,
+			},
+			select: {
+				connections: true,
+			},
+		});
 
 		const posts = await prismaClient.prisma.post.findMany({
 			where: {
 				authorId: {
-					in: [...user.connections.map((conn) => conn.id), user.id], // Include user's connections and user themselves
+					in: [
+						...updatedUser.connections.map((conn) => conn.id),
+						user.id,
+					], // Include user's connections and user themselves
 				},
 			},
 			include: {
@@ -94,7 +106,7 @@ export const deletePost = async (req: Request, res: Response) => {
 
 		if (post.image) {
 			await cloudinary.uploader.destroy(
-				post.image.split("/").pop().split(".")[0]
+				post.image.split("/").pop()?.split(".")[0] as string
 			);
 		}
 
@@ -243,17 +255,29 @@ export const likePost = async (req: Request, res: Response) => {
 		const isLiked = post.likes.some((like) => like.id === userId);
 
 		if (isLiked) {
-			await prismaClient.prisma.likes.deleteMany({
+			await prismaClient.prisma.post.update({
 				where: {
-					postId,
-					userId,
+					id: postId,
+				},
+				data: {
+					likes: {
+						disconnect: {
+							id: userId,
+						},
+					},
 				},
 			});
 		} else {
-			await prismaClient.prisma.like.create({
+			await prismaClient.prisma.post.update({
+				where: {
+					id: postId,
+				},
 				data: {
-					postId,
-					userId,
+					likes: {
+						connect: {
+							id: userId,
+						},
+					},
 				},
 			});
 
@@ -261,7 +285,7 @@ export const likePost = async (req: Request, res: Response) => {
 				await prismaClient.prisma.notification.create({
 					data: {
 						recipientId: post.authorId,
-						type: "like",
+						type: "LIKE",
 						relatedUserId: userId,
 						relatedPostId: postId,
 					},
